@@ -81,8 +81,10 @@ export default function LocalProvidersTab() {
     filteredProviders.forEach((provider) => {
       const baseUrl = provider.settings.baseUrl;
 
-      // Skip health monitoring for OpenAILike if no API key is set
-      // (client-side requests require CORS and an API key)
+      /*
+       * Skip health monitoring for OpenAILike if no API key is set
+       * (client-side requests require CORS and an API key)
+       */
       if (provider.name === 'OpenAILike' && !provider.settings.apiKey) {
         console.log(`[LocalProvidersTab] Skipping health monitoring for OpenAILike (no API key set)`);
 

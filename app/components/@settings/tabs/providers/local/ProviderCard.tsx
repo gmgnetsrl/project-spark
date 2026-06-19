@@ -14,12 +14,7 @@ interface ProviderCardProps {
   onUpdateApiKey: (apiKey: string) => void;
 }
 
-function ProviderCard({
-  provider,
-  onToggle,
-  onUpdateBaseUrl,
-  onUpdateApiKey,
-}: ProviderCardProps) {
+function ProviderCard({ provider, onToggle, onUpdateBaseUrl, onUpdateApiKey }: ProviderCardProps) {
   const [showApiKey, setShowApiKey] = useState(false);
   const [editingField, setEditingField] = useState<'baseUrl' | 'apiKey' | null>(null);
   const [tempBaseUrl, setTempBaseUrl] = useState<string>('');
@@ -164,11 +159,7 @@ function ProviderCard({
                             className="absolute right-3 top-1/2 -translate-y-1/2 text-bolt-elements-textTertiary hover:text-bolt-elements-textPrimary transition-colors"
                             type="button"
                           >
-                            {showApiKey ? (
-                              <EyeOff className="w-4 h-4" />
-                            ) : (
-                              <Eye className="w-4 h-4" />
-                            )}
+                            {showApiKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                           </button>
                         </div>
                       ) : (

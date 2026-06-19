@@ -361,6 +361,7 @@ export class LocalModelHealthMonitor extends SimpleEventEmitter {
 
       // Try to decode URL-encoded cookie value
       let decodedCookie: string;
+
       try {
         decodedCookie = decodeURIComponent(providersCookie);
         console.log(`[HealthMonitor] Decoded cookie:`, decodedCookie.substring(0, 200));
