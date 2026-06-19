@@ -203,9 +203,13 @@ export const BaseChat = React.forwardRef<HTMLDivElement, BaseChatProps>(
       }
     }, []);
 
+    // Local providers that store their configuration in browser cookies/settings
+    const LOCAL_PROVIDERS = ['OpenAILike', 'LMStudio', 'Ollama'];
+
     useEffect(() => {
       if (typeof window !== 'undefined') {
         let parsedApiKeys: Record<string, string> | undefined = {};
+        let parsedProviderSettings: Record<string, any> | undefined = {};
 
         try {
           parsedApiKeys = getApiKeysFromCookies();
@@ -215,12 +219,87 @@ export const BaseChat = React.forwardRef<HTMLDivElement, BaseChatProps>(
           Cookies.remove('apiKeys');
         }
 
+        // Load provider settings from cookies (includes baseUrl for local providers)
+        try {
+          const providerSettingsCookie = Cookies.get('providerSettings');
+          if (providerSettingsCookie) {
+            parsedProviderSettings = JSON.parse(providerSettingsCookie);
+          }
+        } catch (error) {
+          console.error('Error loading provider settings from cookies:', error);
+        }
+
         setIsModelLoading('all');
         fetch('/api/models')
           .then((response) => response.json())
           .then((data) => {
             const typedData = data as { modelList: ModelInfo[] };
-            setModelList(typedData.modelList);
+            let mergedModels = [...typedData.modelList];
+
+            // Fetch models from local providers (OpenAILike, LMStudio, Ollama) using client-side config
+            const localProviderPromises = LOCAL_PROVIDERS.map(async (providerName) => {
+              const apiKey = parsedApiKeys?.[providerName];
+              const providerSettings = parsedProviderSettings?.[providerName];
+              const baseUrl = providerSettings?.baseUrl;
+
+              if (!baseUrl) {
+                return [] as ModelInfo[];
+              }
+
+              try {
+                // Normalize URL to include /v1 if needed (for OpenAILike and LMStudio)
+                const normalizedBaseUrl = baseUrl.includes('/v1') ? baseUrl : `${baseUrl}/v1`;
+
+                const headers: Record<string, string> = {};
+                if (apiKey) {
+                  headers.Authorization = `Bearer ${apiKey}`;
+                }
+
+                const response = await fetch(normalizedBaseUrl + '/models', {
+                  headers,
+                  signal: AbortSignal.timeout(10000), // 10 second timeout
+                });
+
+                if (!response.ok) {
+                  console.warn(`Failed to fetch models from ${providerName}:`, response.statusText);
+                  return [] as ModelInfo[];
+                }
+
+                const localData = (await response.json()) as Record<string, unknown>;
+
+                // Handle different response formats
+                let models: unknown[] = [];
+                if (localData.data && Array.isArray(localData.data)) {
+                  // OpenAI-compatible format (OpenAILike, LMStudio)
+                  models = localData.data;
+                } else if (Array.isArray(localData)) {
+                  // Direct array format (Ollama)
+                  models = localData;
+                } else {
+                  return [] as ModelInfo[];
+                }
+
+                return models.map((model: unknown) => {
+                  const modelObj = model as Record<string, unknown>;
+                  return {
+                    name: (modelObj.id || modelObj.name) as string,
+                    label: (modelObj.id || modelObj.name) as string,
+                    provider: providerName,
+                    maxTokenAllowed: 8000,
+                  };
+                });
+              } catch (error) {
+                console.warn(`Error fetching models from ${providerName}:`, error);
+                return [] as ModelInfo[];
+              }
+            });
+
+            // Wait for all local provider model fetches to complete
+            Promise.all(localProviderPromises).then((results) => {
+              const localModels = results.flat();
+              mergedModels = [...mergedModels, ...localModels];
+              setModelList(mergedModels);
+            });
           })
           .catch((error) => {
             console.error('Error fetching model list:', error);
