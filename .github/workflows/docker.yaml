@@ -2,8 +2,8 @@ name: Docker Publish
 
 on:
   push:
-    branches: [main, stable]
-    tags: ['v*', '*.*.*']
+    branches: [main]
+    tags: ["v*", "*.*.*"]
   workflow_dispatch:
 
 concurrency:
@@ -25,14 +25,14 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-      
+
       - name: Set lowercase image name
         id: image
         run: echo "name=$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_OUTPUT
-      
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
-        
+
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@v3
         with:
@@ -56,12 +56,11 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: .
-          platforms: linux/amd64,linux/arm64
+          platforms: linux/amd64
           target: bolt-ai-production
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          
-          
+
       - name: Check manifest
         run: docker buildx imagetools inspect ${{ env.REGISTRY }}/${{ steps.image.outputs.name }}:${{ steps.meta.outputs.version }}
