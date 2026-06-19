@@ -4,9 +4,16 @@ import { chatStore } from '~/lib/stores/chat';
 import { classNames } from '~/utils/classNames';
 import { HeaderActionButtons } from './HeaderActionButtons.client';
 import { ChatDescription } from '~/lib/persistence/ChatDescription.client';
+import { useCallback } from 'react';
 
 export function Header() {
   const chat = useStore(chatStore);
+
+  const handleSidebarToggle = useCallback(() => {
+    // Dispatch a custom event that the Menu component can listen to
+    const event = new CustomEvent('toggleSidebar');
+    window.dispatchEvent(event);
+  }, []);
 
   return (
     <header
@@ -15,12 +22,21 @@ export function Header() {
         'border-bolt-elements-borderColor': chat.started,
       })}
     >
-      <div className="flex items-center gap-2 z-logo text-bolt-elements-textPrimary cursor-pointer">
-        <div className="i-ph:sidebar-simple-duotone text-xl" />
-        <a href="/" className="text-2xl font-semibold text-accent flex items-center">
-          {/* <span className="i-bolt:logo-text?mask w-[46px] inline-block" /> */}
-          <img src="/logo-light-styled.png" alt="logo" className="w-[90px] inline-block dark:hidden" />
-          <img src="/logo-dark-styled.png" alt="logo" className="w-[90px] inline-block hidden dark:block" />
+      <div className="flex items-center gap-2 z-logo text-bolt-elements-textPrimary">
+        <button
+          type="button"
+          onClick={handleSidebarToggle}
+          className="p-1.5 rounded-lg hover:bg-bolt-elements-background-depth-3 transition-colors cursor-pointer"
+          aria-label="Toggle sidebar"
+        >
+          <div className="i-ph:sidebar-simple-duotone text-xl" />
+        </button>
+        <a href="/" className="flex items-center gap-3">
+          <img
+            src="/gmg-logo.png"
+            alt="GMG Logo"
+            className="h-14 w-auto rounded-lg object-contain backdrop-blur-sm p-2 hover:shadow-md transition-all duration-200"
+          />
         </a>
       </div>
       {chat.started && ( // Display ChatDescription and HeaderActionButtons only when the chat has started.

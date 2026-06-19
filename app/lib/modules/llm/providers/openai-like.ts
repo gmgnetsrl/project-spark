@@ -37,8 +37,11 @@ export default class OpenAILikeProvider extends BaseProvider {
       return [];
     }
 
+    // Normalize URL to include /v1 if needed
+    const normalizedBaseUrl = baseUrl.includes('/v1') ? baseUrl : `${baseUrl}/v1`;
+
     try {
-      const response = await fetch(`${baseUrl}/models`, {
+      const response = await fetch(`${normalizedBaseUrl}/models`, {
         headers: {
           Authorization: `Bearer ${apiKey}`,
         },
@@ -170,6 +173,9 @@ export default class OpenAILikeProvider extends BaseProvider {
       throw new Error(`Missing configuration for ${this.name} provider`);
     }
 
-    return getOpenAILikeModel(baseUrl, apiKey, model);
+    // Normalize URL to include /v1 if needed
+    const normalizedBaseUrl = baseUrl.includes('/v1') ? baseUrl : `${baseUrl}/v1`;
+
+    return getOpenAILikeModel(normalizedBaseUrl, apiKey, model);
   }
 }

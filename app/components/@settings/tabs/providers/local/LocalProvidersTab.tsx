@@ -25,7 +25,6 @@ type ViewMode = 'dashboard' | 'guide' | 'status';
 export default function LocalProvidersTab() {
   const { providers, updateProviderSettings } = useSettings();
   const [viewMode, setViewMode] = useState<ViewMode>('dashboard');
-  const [editingProvider, setEditingProvider] = useState<string | null>(null);
   const [ollamaModels, setOllamaModels] = useState<OllamaModel[]>([]);
   const [lmStudioModels, setLMStudioModels] = useState<LMStudioModel[]>([]);
   const [isLoadingModels, setIsLoadingModels] = useState(false);
@@ -81,6 +80,18 @@ export default function LocalProvidersTab() {
   useEffect(() => {
     filteredProviders.forEach((provider) => {
       const baseUrl = provider.settings.baseUrl;
+
+      // Skip health monitoring for OpenAILike if no API key is set
+      // (client-side requests require CORS and an API key)
+      if (provider.name === 'OpenAILike' && !provider.settings.apiKey) {
+        console.log(`[LocalProvidersTab] Skipping health monitoring for OpenAILike (no API key set)`);
+
+        if (baseUrl) {
+          stopMonitoring(provider.name as 'Ollama' | 'LMStudio' | 'OpenAILike', baseUrl);
+        }
+
+        return;
+      }
 
       if (provider.settings.enabled && baseUrl) {
         console.log(`[LocalProvidersTab] Starting monitoring for ${provider.name} at ${baseUrl}`);
@@ -186,6 +197,19 @@ export default function LocalProvidersTab() {
         baseUrl: newBaseUrl,
       });
       toast(`${provider.name} base URL updated`);
+    },
+    [updateProviderSettings, toast],
+  );
+
+  const handleUpdateApiKey = useCallback(
+    (provider: IProviderConfig, newApiKey: string) => {
+      const newApiKeyTrimmed: string | undefined = newApiKey.trim() || undefined;
+
+      updateProviderSettings(provider.name, {
+        ...provider.settings,
+        apiKey: newApiKeyTrimmed,
+      });
+      toast(`${provider.name} API key updated`);
     },
     [updateProviderSettings, toast],
   );
@@ -353,9 +377,7 @@ export default function LocalProvidersTab() {
                 provider={provider}
                 onToggle={(enabled) => handleToggleProvider(provider, enabled)}
                 onUpdateBaseUrl={(url) => handleUpdateBaseUrl(provider, url)}
-                isEditing={editingProvider === provider.name}
-                onStartEditing={() => setEditingProvider(provider.name)}
-                onStopEditing={() => setEditingProvider(null)}
+                onUpdateApiKey={(apiKey) => handleUpdateApiKey(provider, apiKey)}
               />
 
               {/* Ollama Models Section */}

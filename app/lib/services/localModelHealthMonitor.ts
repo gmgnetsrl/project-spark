@@ -314,7 +314,7 @@ export class LocalModelHealthMonitor extends SimpleEventEmitter {
           isHealthy: false,
           responseTime: 0,
           error:
-            'CORS_ERROR: LM Studio server is blocking cross-origin requests. Try enabling CORS in LM Studio settings or use Bolt desktop app.',
+            'CORS_ERROR: LM Studio server is blocking cross-origin requests. Try enabling CORS in LM Studio settings or use Spark desktop app.',
         };
       }
 
@@ -327,6 +327,63 @@ export class LocalModelHealthMonitor extends SimpleEventEmitter {
   }
 
   /**
+   * Get API key from cookies for a given provider
+   */
+  private _getApiKeyFromCookies(providerName: string): string | undefined {
+    if (typeof document === 'undefined') {
+      return undefined;
+    }
+
+    try {
+      console.log(`[HealthMonitor] Raw cookies:`, document.cookie);
+
+      const cookies = document.cookie.split(';').reduce<Record<string, string>>((acc, cookie) => {
+        const [name, ...rest] = cookie.split('=');
+        const key = name.trim();
+        const value = rest.join('=').trim();
+
+        if (key && value) {
+          acc[key] = value;
+        }
+
+        return acc;
+      }, {});
+
+      console.log(`[HealthMonitor] Parsed cookies:`, cookies);
+
+      const providersCookie = cookies.providers;
+      console.log(`[HealthMonitor] providers cookie raw value:`, providersCookie);
+
+      if (!providersCookie) {
+        console.log(`[HealthMonitor] No providers cookie found`);
+        return undefined;
+      }
+
+      // Try to decode URL-encoded cookie value
+      let decodedCookie: string;
+      try {
+        decodedCookie = decodeURIComponent(providersCookie);
+        console.log(`[HealthMonitor] Decoded cookie:`, decodedCookie.substring(0, 200));
+      } catch {
+        decodedCookie = providersCookie;
+        console.log(`[HealthMonitor] Cookie was not URL-encoded, using raw value`);
+      }
+
+      const providerSettings = JSON.parse(decodedCookie || '{}');
+      console.log(`[HealthMonitor] Parsed providerSettings:`, providerSettings);
+      console.log(
+        `[HealthMonitor] API key for ${providerName}:`,
+        providerSettings[providerName]?.apiKey ? 'SET' : 'NOT SET',
+      );
+
+      return providerSettings[providerName]?.apiKey;
+    } catch (error) {
+      console.error(`[HealthMonitor] Error reading API key from cookies:`, error);
+      return undefined;
+    }
+  }
+
+  /**
    * Check OpenAI-like provider health
    */
   private async _checkOpenAILikeHealth(baseUrl: string, signal: AbortSignal): Promise<HealthCheckResult> {
@@ -334,15 +391,29 @@ export class LocalModelHealthMonitor extends SimpleEventEmitter {
       // Normalize URL to include /v1 if needed
       const normalizedUrl = baseUrl.includes('/v1') ? baseUrl : `${baseUrl}/v1`;
 
+      // Get API key from cookies
+      const apiKey = this._getApiKeyFromCookies('OpenAILike');
+
       const response = await fetch(`${normalizedUrl}/models`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
+          ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {}),
         },
         signal,
       });
 
       if (!response.ok) {
+        // Check if this is a CORS error
+        if (response.type === 'opaque' || response.status === 0) {
+          return {
+            isHealthy: false,
+            responseTime: 0,
+            error:
+              'CORS_ERROR: The OpenAI-compatible API server is not configured to allow cross-origin requests. Configure CORS on your API server or use the desktop app.',
+          };
+        }
+
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
 
@@ -355,10 +426,26 @@ export class LocalModelHealthMonitor extends SimpleEventEmitter {
         availableModels: models,
       };
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+
+      // Check if this is a CORS error
+      if (
+        errorMessage.includes('CORS') ||
+        errorMessage.includes('Failed to fetch') ||
+        errorMessage.includes('NetworkError')
+      ) {
+        return {
+          isHealthy: false,
+          responseTime: 0,
+          error:
+            'CORS_ERROR: The OpenAI-compatible API server is blocking cross-origin requests. Configure CORS on your API server or use the desktop app.',
+        };
+      }
+
       return {
         isHealthy: false,
         responseTime: 0,
-        error: error instanceof Error ? error.message : 'Unknown error',
+        error: errorMessage,
       };
     }
   }

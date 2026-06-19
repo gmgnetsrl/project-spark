@@ -68,10 +68,13 @@ async function chatAction({ context, request }: ActionFunctionArgs) {
     }>();
 
   const cookieHeader = request.headers.get('Cookie');
-  const apiKeys = JSON.parse(parseCookies(cookieHeader || '').apiKeys || '{}');
-  const providerSettings: Record<string, IProviderSetting> = JSON.parse(
-    parseCookies(cookieHeader || '').providers || '{}',
-  );
+  const cookies = parseCookies(cookieHeader || '');
+  const apiKeys: Record<string, string> = JSON.parse(cookies.apiKeys || '{}');
+  const providerSettings: Record<string, IProviderSetting> = JSON.parse(cookies.providers || '{}');
+
+  // Debug: Log what we're reading from cookies
+  console.log('[api.chat] Cookie providers:', cookies.providers);
+  console.log('[api.chat] Parsed providerSettings:', JSON.stringify(providerSettings, null, 2));
 
   const stream = new SwitchableStream();
 
