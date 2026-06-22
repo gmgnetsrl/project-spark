@@ -57,9 +57,10 @@ ENV WRANGLER_SEND_METRICS=false \
 # Note: API keys should be provided at runtime via docker run -e or docker-compose
 # Example: docker run -e OPENAI_API_KEY=your_key_here ...
 
-# Install curl for healthchecks and copy bindings script
-RUN apt-get update && apt-get install -y --no-install-recommends curl \
-  && rm -rf /var/lib/apt/lists/*
+# Install internal CA certificate for TLS trust
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates curl && rm -rf /var/lib/apt/lists/*
+COPY ca-certificates/ /usr/local/share/ca-certificates/
+RUN update-ca-certificates
 
 # Copy built files and scripts
 COPY --from=prod-deps /app/build /app/build
